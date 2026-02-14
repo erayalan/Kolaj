@@ -38,7 +38,7 @@ struct ContentView: View {
                             .foregroundStyle(.primary)
                             .padding()
                     }
-                   // .glassEffect()
+                    .buttonStyle(.glass)
 
                     Button(action: viewModel.moveSelectedItemBackward) {
                         Image(systemName: "arrow.down")
@@ -46,7 +46,7 @@ struct ContentView: View {
                             .foregroundStyle(.primary)
                             .padding()
                     }
-                    .glassEffect()
+                    .buttonStyle(.glass)
 
                     Button(action: viewModel.cycleSelectedItemBorderColor) {
                         Image(systemName: "square")
@@ -54,16 +54,15 @@ struct ContentView: View {
                             .foregroundStyle(.primary)
                             .padding()
                     }
-                    .glassEffect()
+                    .buttonStyle(.glass)
 
                     Button(action: viewModel.deleteSelectedItem) {
                         Image(systemName: "trash")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
                             .foregroundStyle(.primary)
                             .padding()
-                            .glassEffect()
                     }
-                    //.glassEffect()
+                    .buttonStyle(.glass)
                 }
                 .padding(Constants.UI.fabClusterPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -75,7 +74,7 @@ struct ContentView: View {
                     .foregroundStyle(.primary)
                     .padding()
             }
-            .glassEffect()
+            .buttonStyle(.glass)
             .disabled(!hasCanvasItems)
             .opacity(hasCanvasItems ? 1 : 0.4)
             .padding(Constants.UI.fabClusterPadding)

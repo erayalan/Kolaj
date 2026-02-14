@@ -16,7 +16,7 @@ struct FloatingActionButtons: View {
                 .foregroundStyle(.primary)
                 .padding()
         }
-        .glassEffect()
+        .buttonStyle(.glass)
         .padding(Constants.UI.fabClusterPadding)
     }
 }

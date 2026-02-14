@@ -1,0 +1,127 @@
+import Foundation
+import SwiftUI
+import PhotosUI
+import UIKit
+
+/// Main view model coordinating the collage creation workflow
+@MainActor
+@Observable
+final class CollageViewModel {
+
+    /// Application state
+    var state = AppState()
+
+    // MARK: - Services (injected with defaults)
+    private let imageProcessingService: ImageProcessingProtocol
+    private let backgroundRemovalService: BackgroundRemovalProtocol
+    private let canvasExportService: CanvasExportProtocol
+    private let boundaryFeedback = UIImpactFeedbackGenerator(style: .light)
+
+    // MARK: - Initialization
+
+    init(
+        imageProcessingService: ImageProcessingProtocol = ImageProcessingService.shared,
+        backgroundRemovalService: BackgroundRemovalProtocol = BackgroundRemovalService.shared,
+        canvasExportService: CanvasExportProtocol = CanvasExportService.shared
+    ) {
+        self.imageProcessingService = imageProcessingService
+        self.backgroundRemovalService = backgroundRemovalService
+        self.canvasExportService = canvasExportService
+    }
+
+    // MARK: - Public API
+
+    /// Loads and processes picked photo items
+    /// - Parameter items: PhotosPickerItems to process
+    func loadPickedItems(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+
+        // Set processing state
+        state.isProcessing = true
+        state.error = nil
+
+        // Process items in background
+        let newItems = await imageProcessingService.processPickedItems(
+            items,
+            canvasSize: state.canvasSize,
+            backgroundRemovalService: backgroundRemovalService
+        )
+
+        // Update state on main thread
+        state.items.append(contentsOf: newItems)
+        state.isProcessing = false
+    }
+
+    /// Exports the current canvas as an image
+    func exportCanvas() {
+        guard !state.items.isEmpty else {
+            state.error = .exportFailed
+            return
+        }
+
+        // Render the canvas
+        guard let uiImage = canvasExportService.renderCanvas(
+            items: state.items,
+            size: state.canvasSize
+        ) else {
+            state.error = .exportFailed
+            return
+        }
+
+        // Update state with export image
+        state.exportImage = Image(uiImage: uiImage)
+        state.isExporting = true
+    }
+
+    /// Updates the canvas size
+    /// - Parameter size: New canvas size
+    func updateCanvasSize(_ size: CGSize) {
+        state.canvasSize = size
+    }
+
+    /// Clears the current error
+    func clearError() {
+        state.error = nil
+    }
+
+    /// Dismisses the export sheet
+    func dismissExport() {
+        state.isExporting = false
+    }
+
+    /// Deletes the currently selected item, if any
+    func deleteSelectedItem() {
+        guard let selectedID = state.selectedItemID else { return }
+        state.items.removeAll { $0.id == selectedID }
+        state.selectedItemID = nil
+    }
+
+    /// Moves the selected item one layer forward (toward front)
+    func moveSelectedItemForward() {
+        guard let selectedID = state.selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
+        guard index < state.items.count - 1 else {
+            boundaryFeedback.impactOccurred()
+            return
+        }
+        state.items.swapAt(index, index + 1)
+    }
+
+    /// Moves the selected item one layer backward (toward back)
+    func moveSelectedItemBackward() {
+        guard let selectedID = state.selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
+        guard index > 0 else {
+            boundaryFeedback.impactOccurred()
+            return
+        }
+        state.items.swapAt(index, index - 1)
+    }
+
+    /// Cycles the cutout border color for the selected item
+    func cycleSelectedItemBorderColor() {
+        guard let selectedID = state.selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
+        state.items[index].cutoutBorderColor = state.items[index].cutoutBorderColor.next()
+    }
+}

@@ -13,10 +13,10 @@ struct FloatingActionButtons: View {
         ) {
             Image(systemName: "plus")
                 .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                .foregroundStyle(.primary)
                 .padding()
         }
         .buttonStyle(.glass)
+        .clipShape(.circle)
         .padding(Constants.UI.fabClusterPadding)
     }
 }

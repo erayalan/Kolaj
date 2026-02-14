@@ -32,37 +32,53 @@ struct ContentView: View {
 
             if viewModel.state.selectedItemID != nil {
                 VStack(spacing: Constants.UI.fabSpacing) {
-                    Button(action: viewModel.moveSelectedItemForward) {
-                        Image(systemName: "arrow.up")
+                    Button(action: viewModel.moveSelectedItemToFront) {
+                        Image(systemName: "arrow.up.to.line")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .foregroundStyle(.primary)
                             .padding()
                     }
                     .buttonStyle(.glass)
+                    .clipShape(.circle)
+
+                    Button(action: viewModel.moveSelectedItemForward) {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                            .padding()
+                    }
+                    .buttonStyle(.glass)
+                    .clipShape(.circle)
 
                     Button(action: viewModel.moveSelectedItemBackward) {
                         Image(systemName: "arrow.down")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .foregroundStyle(.primary)
                             .padding()
                     }
                     .buttonStyle(.glass)
+                    .clipShape(.circle)
+
+                    Button(action: viewModel.moveSelectedItemToBack) {
+                        Image(systemName: "arrow.down.to.line")
+                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                            .padding()
+                    }
+                    .buttonStyle(.glass)
+                    .clipShape(.circle)
 
                     Button(action: viewModel.cycleSelectedItemBorderColor) {
                         Image(systemName: "square")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .foregroundStyle(.primary)
                             .padding()
                     }
                     .buttonStyle(.glass)
+                    .clipShape(.circle)
 
                     Button(action: viewModel.deleteSelectedItem) {
                         Image(systemName: "trash")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .foregroundStyle(.primary)
                             .padding()
                     }
                     .buttonStyle(.glass)
+                    .clipShape(.circle)
                 }
                 .padding(Constants.UI.fabClusterPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
@@ -75,6 +91,7 @@ struct ContentView: View {
                     .padding()
             }
             .buttonStyle(.glass)
+            .clipShape(.circle)
             .disabled(!hasCanvasItems)
             .opacity(hasCanvasItems ? 1 : 0.4)
             .padding(Constants.UI.fabClusterPadding)

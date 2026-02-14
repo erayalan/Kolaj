@@ -118,6 +118,30 @@ final class CollageViewModel {
         state.items.swapAt(index, index - 1)
     }
 
+    /// Moves the selected item to the front (topmost layer)
+    func moveSelectedItemToFront() {
+        guard let selectedID = state.selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
+        guard index < state.items.count - 1 else {
+            boundaryFeedback.impactOccurred()
+            return
+        }
+        let item = state.items.remove(at: index)
+        state.items.append(item)
+    }
+
+    /// Moves the selected item to the back (bottommost layer)
+    func moveSelectedItemToBack() {
+        guard let selectedID = state.selectedItemID,
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
+        guard index > 0 else {
+            boundaryFeedback.impactOccurred()
+            return
+        }
+        let item = state.items.remove(at: index)
+        state.items.insert(item, at: 0)
+    }
+
     /// Cycles the cutout border color for the selected item
     func cycleSelectedItemBorderColor() {
         guard let selectedID = state.selectedItemID,

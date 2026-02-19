@@ -7,16 +7,26 @@ struct DraggableResizableItem: View {
     @Binding var item: CollageItem
     @Binding var selectedItemID: UUID?
     @Binding var isAnyItemDragging: Bool
+    var canvasBackgroundColor: Color = .white
     @State private var dragOffset: CGSize = .zero
     @State private var currentScale: CGFloat = 1.0
-    @State private var rotation: Angle = .zero
-    @State private var lastRotation: Angle = .zero
+    @State private var rotationDelta: Angle = .zero
     @State private var isGestureActive: Bool = false
     @State private var cornerDragScale: CGFloat = 1.0
     @State private var cornerDragOffset: CGSize = .zero
 
     private let handleSize: CGFloat = 14
     private let handleHitArea: CGFloat = 30
+
+    /// Returns black for light backgrounds, white for dark backgrounds.
+    private var selectionColor: Color {
+        let uiColor = UIColor(canvasBackgroundColor)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        // Relative luminance (sRGB)
+        let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+        return luminance > 0.5 ? .black : .white
+    }
 
     var body: some View {
         let baseSize = CGSize(
@@ -37,8 +47,11 @@ struct DraggableResizableItem: View {
         .frame(width: displaySize.width, height: displaySize.height)
         .background(
             Group {
+                let resolvedBorderColor: Color? = item.cutoutBorderColor == .custom
+                    ? item.customBorderColor
+                    : item.cutoutBorderColor.color
                 if let uiImage = item.uiImage,
-                   let borderColor = item.cutoutBorderColor.color {
+                   let borderColor = resolvedBorderColor {
                     let borderScale = uiImage.size.width > 0 ? (displaySize.width / uiImage.size.width) : 1
                     let borderPadding = Constants.UI.cutoutBorderWidth * borderScale
                     CutoutBorderView(
@@ -56,7 +69,7 @@ struct DraggableResizableItem: View {
         )
         .overlay(
             Rectangle()
-                .stroke(Color.white, lineWidth: 2)
+                .stroke(selectionColor, lineWidth: 2)
                 .opacity(isSelected && !isGestureActive ? 1 : 0)
         )
         .overlay(
@@ -66,7 +79,7 @@ struct DraggableResizableItem: View {
                 }
             }
         )
-        .rotationEffect(rotation)
+        .rotationEffect(item.rotation + rotationDelta)
         .offset(x: dragOffset.width + cornerDragOffset.width,
                 y: dragOffset.height + cornerDragOffset.height)
         .onTapGesture {
@@ -131,10 +144,11 @@ struct DraggableResizableItem: View {
         .simultaneousGesture(
             RotationGesture()
                 .onChanged { value in
-                    rotation = lastRotation + value
+                    rotationDelta = value
                 }
                 .onEnded { value in
-                    lastRotation += value
+                    item.rotation += value
+                    rotationDelta = .zero
                 }
         )
     }
@@ -162,9 +176,9 @@ struct DraggableResizableItem: View {
     @ViewBuilder
     private func cornerHandle(corner: Corner, displaySize: CGSize, baseSize: CGSize) -> some View {
         Circle()
-            .fill(Color.white)
+            .fill(selectionColor)
             .frame(width: handleSize, height: handleSize)
-            .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
+            .shadow(color: selectionColor == .white ? Color.black.opacity(0.4) : Color.white.opacity(0.4), radius: 2, x: 0, y: 1)
             // Expand the hit area without changing visual size
             .contentShape(Rectangle().size(CGSize(width: handleHitArea, height: handleHitArea)))
             .frame(width: handleHitArea, height: handleHitArea)
@@ -179,7 +193,7 @@ struct DraggableResizableItem: View {
 
                         // value.translation is in global (screen) space.
                         // Rotate it into the item's local space so the projection is correct.
-                        let angle = rotation.radians
+                        let angle = (item.rotation + rotationDelta).radians
                         let cosA = cos(angle)
                         let sinA = sin(angle)
                         let tx = value.translation.width
@@ -244,14 +258,6 @@ private struct CutoutBorderView: View {
     let color: Color
     let lineWidth: CGFloat
     private let ciContext = CIContext()
-    private static let thresholdKernel = CIColorKernel(
-        source: """
-        kernel vec4 thresholdMask(__sample s, float threshold) {
-            float m = s.a >= threshold ? 1.0 : 0.0;
-            return vec4(m, m, m, m);
-        }
-        """
-    )
 
     var body: some View {
         if let borderImage = makeBorderImage() {
@@ -259,6 +265,27 @@ private struct CutoutBorderView: View {
                 .resizable()
                 .scaledToFit()
         }
+    }
+
+    /// Binarizes the alpha channel: pixels with alpha >= threshold become fully opaque,
+    /// others become transparent. Uses built-in CI filters instead of a deprecated GLSL kernel.
+    private func thresholdAlpha(_ image: CIImage, threshold: CGFloat, extent: CGRect) -> CIImage? {
+        // Scale all channels by 1/threshold so values >= threshold saturate to >= 1.0,
+        // then clamp to [0,1] to produce a binary mask.
+        let scale = threshold > 0 ? 1.0 / threshold : 1.0
+        let scaleMatrix = CIFilter.colorMatrix()
+        scaleMatrix.inputImage = image
+        scaleMatrix.rVector = CIVector(x: CGFloat(scale), y: 0, z: 0, w: 0)
+        scaleMatrix.gVector = CIVector(x: 0, y: CGFloat(scale), z: 0, w: 0)
+        scaleMatrix.bVector = CIVector(x: 0, y: 0, z: CGFloat(scale), w: 0)
+        scaleMatrix.aVector = CIVector(x: 0, y: 0, z: 0, w: CGFloat(scale))
+        guard let scaled = scaleMatrix.outputImage else { return nil }
+
+        let clamp = CIFilter.colorClamp()
+        clamp.inputImage = scaled
+        clamp.minComponents = CIVector(x: 0, y: 0, z: 0, w: 0)
+        clamp.maxComponents = CIVector(x: 1, y: 1, z: 1, w: 1)
+        return clamp.outputImage?.cropped(to: extent)
     }
 
     private func makeBorderImage() -> UIImage? {
@@ -278,11 +305,7 @@ private struct CutoutBorderView: View {
         alphaMatrix.bVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         alphaMatrix.aVector = CIVector(x: 0, y: 0, z: 0, w: 1)
         guard let alphaMask = alphaMatrix.outputImage,
-              let thresholdKernel = Self.thresholdKernel,
-              let thresholdedMask = thresholdKernel.apply(
-                extent: paddedExtent,
-                arguments: [alphaMask, alphaThreshold]
-              ) else { return nil }
+              let thresholdedMask = thresholdAlpha(alphaMask, threshold: alphaThreshold, extent: paddedExtent) else { return nil }
 
         let dilation = CIFilter.morphologyMaximum()
         dilation.inputImage = thresholdedMask
@@ -298,11 +321,7 @@ private struct CutoutBorderView: View {
         let maskToAlpha = CIFilter.maskToAlpha()
         maskToAlpha.inputImage = outlined
         guard let borderMask = maskToAlpha.outputImage?.cropped(to: paddedExtent),
-              let thresholdKernel = Self.thresholdKernel,
-              let binaryBorderMask = thresholdKernel.apply(
-                extent: paddedExtent,
-                arguments: [borderMask, borderAlphaThreshold]
-              ) else { return nil }
+              let binaryBorderMask = thresholdAlpha(borderMask, threshold: borderAlphaThreshold, extent: paddedExtent) else { return nil }
 
         let rgba = UIColor(color).cgColor.components ?? [1, 1, 1, 1]
         let borderColor = CIColor(

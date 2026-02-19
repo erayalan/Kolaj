@@ -7,7 +7,7 @@ protocol ImageProcessingProtocol {
     func processPickedItems(
         _ items: [PhotosPickerItem],
         canvasSize: CGSize,
-        backgroundRemovalService: BackgroundRemovalProtocol
+        backgroundRemovalService: BackgroundRemovalProtocol?
     ) async -> [CollageItem]
 }
 
@@ -28,8 +28,9 @@ final class ImageProcessingService: ImageProcessingProtocol {
     func processPickedItems(
         _ items: [PhotosPickerItem],
         canvasSize: CGSize,
-        backgroundRemovalService: BackgroundRemovalProtocol = BackgroundRemovalService.shared
+        backgroundRemovalService: BackgroundRemovalProtocol? = nil
     ) async -> [CollageItem] {
+        let backgroundRemovalService = backgroundRemovalService ?? BackgroundRemovalService.shared
         guard !items.isEmpty else { return [] }
 
         var createdItems: [CollageItem] = []

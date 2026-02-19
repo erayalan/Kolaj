@@ -20,13 +20,13 @@ final class CollageViewModel {
     // MARK: - Initialization
 
     init(
-        imageProcessingService: ImageProcessingProtocol = ImageProcessingService.shared,
-        backgroundRemovalService: BackgroundRemovalProtocol = BackgroundRemovalService.shared,
-        canvasExportService: CanvasExportProtocol = CanvasExportService.shared
+        imageProcessingService: ImageProcessingProtocol? = nil,
+        backgroundRemovalService: BackgroundRemovalProtocol? = nil,
+        canvasExportService: CanvasExportProtocol? = nil
     ) {
-        self.imageProcessingService = imageProcessingService
-        self.backgroundRemovalService = backgroundRemovalService
-        self.canvasExportService = canvasExportService
+        self.imageProcessingService = imageProcessingService ?? ImageProcessingService.shared
+        self.backgroundRemovalService = backgroundRemovalService ?? BackgroundRemovalService.shared
+        self.canvasExportService = canvasExportService ?? CanvasExportService.shared
     }
 
     // MARK: - Public API
@@ -53,9 +53,17 @@ final class CollageViewModel {
     }
 
     /// Renders the current canvas as a UIImage for saving or sharing
-    func renderCanvasImage() -> UIImage? {
+    func renderCanvasImage(colorScheme: ColorScheme) -> UIImage? {
         guard !state.items.isEmpty else { return nil }
-        return canvasExportService.renderCanvas(items: state.items, size: state.canvasSize)
+        let resolvedColor: Color
+        if state.canvasBackgroundColor == .custom {
+            resolvedColor = state.canvasCustomBackgroundColor
+        } else if state.canvasBackgroundColor == .primary {
+            resolvedColor = colorScheme == .dark ? .black : .white
+        } else {
+            resolvedColor = state.canvasBackgroundColor.color ?? .white
+        }
+        return canvasExportService.renderCanvas(items: state.items, size: state.canvasSize, backgroundColor: resolvedColor, colorScheme: colorScheme)
     }
 
     /// Updates the canvas size
@@ -122,10 +130,19 @@ final class CollageViewModel {
         state.items.insert(item, at: 0)
     }
 
-    /// Cycles the cutout border color for the selected item
-    func cycleSelectedItemBorderColor() {
+    /// Cycles the cutout border color for the selected item.
+    /// Returns true when it cycles to .custom, so the caller can open a color picker.
+    @discardableResult
+    func cycleSelectedItemBorderColor() -> Bool {
         guard let selectedID = state.selectedItemID,
-              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return }
-        state.items[index].cutoutBorderColor = state.items[index].cutoutBorderColor.next()
+              let index = state.items.firstIndex(where: { $0.id == selectedID }) else { return false }
+        let next = state.items[index].cutoutBorderColor.next()
+        state.items[index].cutoutBorderColor = next
+        return next == .custom
+    }
+
+    /// Cycles the canvas background color to the next preset
+    func cycleCanvasBackgroundColor() {
+        state.canvasBackgroundColor = state.canvasBackgroundColor.next()
     }
 }

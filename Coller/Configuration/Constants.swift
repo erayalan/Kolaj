@@ -35,10 +35,10 @@ enum Constants {
         static let exportButtonPaddingV: CGFloat = 12
 
         /// Size of the plus icon (layer control buttons)
-        static let plusIconSize: CGFloat = 16
+        static let plusIconSize: CGFloat = 20
 
         /// Size of the main action button icons (add photo, export)
-        static let mainActionIconSize: CGFloat = 16
+        static let mainActionIconSize: CGFloat = 20
 
         /// Padding inside the plus button circle
         static let plusButtonPadding: CGFloat = 18
@@ -62,7 +62,7 @@ enum Constants {
     /// Animation and rendering constants
     enum Rendering {
         /// Default screen scale multiplier for exports
-        static var screenScale: CGFloat { UIScreen.main.scale }
+        static var screenScale: CGFloat { UITraitCollection.current.displayScale }
     }
 
     /// Error messages for user-facing alerts

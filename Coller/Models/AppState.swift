@@ -19,6 +19,12 @@ final class AppState {
     /// Currently selected item on the canvas, if any
     var selectedItemID: UUID?
 
+    /// Current canvas background color selection
+    var canvasBackgroundColor: CanvasBackgroundColor = .primary
+
+    /// Custom canvas background color used when canvasBackgroundColor == .custom
+    var canvasCustomBackgroundColor: Color = .white
+
     init() {}
 }
 

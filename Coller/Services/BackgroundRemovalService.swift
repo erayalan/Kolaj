@@ -60,18 +60,15 @@ final class BackgroundRemovalService: BackgroundRemovalProtocol {
         do {
             try handler.perform([request])
         } catch {
-            print("Vision perform error: \(error)")
             return nil
         }
         guard let result = request.results?.first else {
-            print("No observations found")
             return nil
         }
         do {
             let maskPixelBuffer = try result.generateScaledMaskForImage(forInstances: result.allInstances, from: handler)
             return CIImage(cvPixelBuffer: maskPixelBuffer)
         } catch {
-            print("Mask generation error: \(error)")
             return nil
         }
     }
@@ -88,6 +85,6 @@ final class BackgroundRemovalService: BackgroundRemovalProtocol {
         guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else {
             return nil
         }
-        return UIImage(cgImage: cgImage, scale: UIScreen.main.scale, orientation: orientation)
+        return UIImage(cgImage: cgImage, scale: UITraitCollection.current.displayScale, orientation: orientation)
     }
 }

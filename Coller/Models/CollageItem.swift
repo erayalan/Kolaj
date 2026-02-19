@@ -10,6 +10,7 @@ struct CollageItem: Identifiable, Equatable {
     var scale: CGFloat = 1.0
     var rotation: Angle = .zero
     var cutoutBorderColor: CutoutBorderColor = .none
+    var customBorderColor: Color = .white
 
     /// Optional UIImage reference for export optimization
     /// Allows exporting without re-rendering from SwiftUI Image
@@ -23,6 +24,7 @@ struct CollageItem: Identifiable, Equatable {
         scale: CGFloat = 1.0,
         rotation: Angle = .zero,
         cutoutBorderColor: CutoutBorderColor = .none,
+        customBorderColor: Color = .white,
         uiImage: UIImage? = nil
     ) {
         self.id = id
@@ -32,6 +34,7 @@ struct CollageItem: Identifiable, Equatable {
         self.scale = scale
         self.rotation = rotation
         self.cutoutBorderColor = cutoutBorderColor
+        self.customBorderColor = customBorderColor
         self.uiImage = uiImage
     }
 
@@ -41,22 +44,48 @@ struct CollageItem: Identifiable, Equatable {
         lhs.position == rhs.position &&
         lhs.scale == rhs.scale &&
         lhs.rotation == rhs.rotation &&
-        lhs.cutoutBorderColor == rhs.cutoutBorderColor
+        lhs.cutoutBorderColor == rhs.cutoutBorderColor &&
+        lhs.customBorderColor == rhs.customBorderColor
+    }
+}
+
+enum CanvasBackgroundColor: Int, CaseIterable {
+    case primary
+    case red
+    case yellow
+    case green
+    case custom
+
+    var color: Color? {
+        switch self {
+        case .primary: return Color(.systemBackground)
+        case .red:     return Color(red: 1.0, green: 0.07, blue: 0.07)
+        case .yellow:  return Color(red: 1.0, green: 0.95, blue: 0.0)
+        case .green:   return Color(red: 0.07, green: 1.0, blue: 0.07)
+        case .custom:  return nil
+        }
+    }
+
+    func next() -> CanvasBackgroundColor {
+        let all = Self.allCases
+        let nextIndex = (rawValue + 1) % all.count
+        return all[nextIndex]
     }
 }
 
 enum CutoutBorderColor: Int, CaseIterable {
-    case white
+    case primary
     case red
     case yellow
     case green
     case black
+    case custom
     case none
 
     var color: Color? {
         switch self {
-        case .white:
-            return .white
+        case .primary:
+            return .primary
         case .red:
             return Color(red: 1.0, green: 0.07, blue: 0.07)
         case .yellow:
@@ -65,6 +94,8 @@ enum CutoutBorderColor: Int, CaseIterable {
             return Color(red: 0.07, green: 1.0, blue: 0.07)
         case .black:
             return .black
+        case .custom:
+            return nil  // resolved at the call site using customBorderColor
         case .none:
             return nil
         }

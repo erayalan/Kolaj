@@ -4,104 +4,114 @@ import PhotosUI
 struct ContentView: View {
     @State private var viewModel = CollageViewModel()
     @State private var pickerItems: [PhotosPickerItem] = []
-    private var hasCanvasItems: Bool { !viewModel.state.items.isEmpty }
+    @State private var isAnyItemDragging: Bool = false
+    private var showLayerActions: Bool { viewModel.state.selectedItemID != nil && !isAnyItemDragging }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             // Canvas
             CanvasContainerView(
                 items: $viewModel.state.items,
-                selectedItemID: $viewModel.state.selectedItemID
-            ) { size in
-                viewModel.updateCanvasSize(size)
-            }
-
-            if !hasCanvasItems {
-                Text("Tap + to add photos (backgrounds removed) to your canvas.")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Constants.UI.fabClusterPadding)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            }
-
-            // Floating action buttons
-            FloatingActionButtons(
-                pickerItems: $pickerItems
+                selectedItemID: $viewModel.state.selectedItemID,
+                isAnyItemDragging: $isAnyItemDragging,
+                onSizeChange: { size in
+                    viewModel.updateCanvasSize(size)
+                }
             )
 
-            if viewModel.state.selectedItemID != nil {
-                VStack(spacing: Constants.UI.fabSpacing) {
-                    Button(action: viewModel.moveSelectedItemToFront) {
-                        Image(systemName: "arrow.up.to.line")
-                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
-                    }
-                    .buttonStyle(.glass)
-                    .clipShape(.circle)
+            // Add photos button (bottom right), hidden when layer actions are visible
+            if !showLayerActions {
+                FloatingActionButtons(pickerItems: $pickerItems)
+                    .padding(Constants.UI.fabClusterPadding)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
 
-                    Button(action: viewModel.moveSelectedItemForward) {
-                        Image(systemName: "arrow.up")
+            // Layer controls, shown when layer actions are visible
+            if showLayerActions && viewModel.state.selectedItemID != nil {
+                // Top left: layer order buttons (two standalone buttons, no grouping)
+                HStack(spacing: Constants.UI.fabSpacing) {
+                    // Move forward: tap = one layer up, long press = to front
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        viewModel.moveSelectedItemForward()
+                    }) {
+                        Image(systemName: "square.2.layers.3d.top.filled")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
+                            .padding(.all, 8)
                     }
                     .buttonStyle(.glass)
                     .clipShape(.circle)
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.5)
+                            .onEnded { _ in
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                viewModel.moveSelectedItemToFront()
+                            }
+                    )
 
-                    Button(action: viewModel.moveSelectedItemBackward) {
-                        Image(systemName: "arrow.down")
+                    // Move backward: tap = one layer down, long press = to back
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        viewModel.moveSelectedItemBackward()
+                    }) {
+                        Image(systemName: "square.2.layers.3d.bottom.filled")
                             .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
+                            .padding(.all, 8)
                     }
                     .buttonStyle(.glass)
                     .clipShape(.circle)
-
-                    Button(action: viewModel.moveSelectedItemToBack) {
-                        Image(systemName: "arrow.down.to.line")
-                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
-                    }
-                    .buttonStyle(.glass)
-                    .clipShape(.circle)
-
-                    Button(action: viewModel.cycleSelectedItemBorderColor) {
-                        Image(systemName: "square")
-                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
-                    }
-                    .buttonStyle(.glass)
-                    .clipShape(.circle)
-
-                    Button(action: viewModel.deleteSelectedItem) {
-                        Image(systemName: "trash")
-                            .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                            .padding()
-                    }
-                    .buttonStyle(.glass)
-                    .clipShape(.circle)
+                    .simultaneousGesture(
+                        LongPressGesture(minimumDuration: 0.5)
+                            .onEnded { _ in
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                viewModel.moveSelectedItemToBack()
+                            }
+                    )
                 }
                 .padding(Constants.UI.fabClusterPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                // Bottom left: border button
+                Button(action: viewModel.cycleSelectedItemBorderColor) {
+                    Image(systemName: "square")
+                        .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                        .padding(.all, 8)
+                }
+                .buttonStyle(.glass)
+                .clipShape(.circle)
+                .padding(Constants.UI.fabClusterPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+
+                // Top right: delete button
+                Button(action: viewModel.deleteSelectedItem) {
+                    Image(systemName: "trash")
+                        .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                        .padding(.all, 8)
+                }
+                .buttonStyle(.glass)
+                .clipShape(.circle)
+                .padding(Constants.UI.fabClusterPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
 
-            Button(action: viewModel.exportCanvas) {
-                Image(systemName: "photo.circle")
-                    .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .padding()
+            // Share button (top right), hidden when layer actions are visible
+            if !showLayerActions, let rendered = viewModel.renderCanvasImage() {
+                ShareLink(
+                    item: Image(uiImage: rendered),
+                    preview: SharePreview("Collage", image: Image(uiImage: rendered))
+                ) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                        .padding(.all, 8)
+                }
+                .buttonStyle(.glass)
+                .clipShape(.circle)
+                .padding(Constants.UI.fabClusterPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
-            .buttonStyle(.glass)
-            .clipShape(.circle)
-            .disabled(!hasCanvasItems)
-            .opacity(hasCanvasItems ? 1 : 0.4)
-            .padding(Constants.UI.fabClusterPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
             // Loading overlay
             LoadingOverlay(isLoading: viewModel.state.isProcessing)
-        }
-        .sheet(isPresented: $viewModel.state.isExporting) {
-            ExportView(image: viewModel.state.exportImage)
         }
         .errorAlert(error: $viewModel.state.error) {
             viewModel.clearError()
@@ -113,6 +123,8 @@ struct ContentView: View {
             }
         }
     }
+
+
 }
 
 #Preview {

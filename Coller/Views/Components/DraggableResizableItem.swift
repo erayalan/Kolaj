@@ -6,20 +6,37 @@ import CoreImage
 struct DraggableResizableItem: View {
     @Binding var item: CollageItem
     @Binding var selectedItemID: UUID?
+    @Binding var isAnyItemDragging: Bool
     @State private var dragOffset: CGSize = .zero
     @State private var currentScale: CGFloat = 1.0
     @State private var rotation: Angle = .zero
     @State private var lastRotation: Angle = .zero
     @State private var isGestureActive: Bool = false
+    @State private var cornerDragScale: CGFloat = 1.0
+    @State private var cornerDragOffset: CGSize = .zero
+
+    private let handleSize: CGFloat = 14
+    private let handleHitArea: CGFloat = 30
 
     var body: some View {
-        GeometryReader { geometry in
-            let displaySize = CGSize(
-                width: item.size.width * item.scale * currentScale,
-                height: item.size.height * item.scale * currentScale
-            )
+        let baseSize = CGSize(
+            width: item.size.width * item.scale * currentScale,
+            height: item.size.height * item.scale * currentScale
+        )
+        let displaySize = CGSize(
+            width: baseSize.width * cornerDragScale,
+            height: baseSize.height * cornerDragScale
+        )
+        let isSelected = selectedItemID == item.id
 
-            ZStack {
+        ZStack {
+            item.image
+                .resizable()
+                .scaledToFit()
+        }
+        .frame(width: displaySize.width, height: displaySize.height)
+        .background(
+            Group {
                 if let uiImage = item.uiImage,
                    let borderColor = item.cutoutBorderColor.color {
                     let borderScale = uiImage.size.width > 0 ? (displaySize.width / uiImage.size.width) : 1
@@ -35,146 +52,190 @@ struct DraggableResizableItem: View {
                     )
                     .allowsHitTesting(false)
                 }
-
-                item.image
-                    .resizable()
-                    .scaledToFit()
             }
-            .frame(width: displaySize.width, height: displaySize.height)
-            .rotationEffect(rotation)
-            .overlay(
-                Rectangle()
-                    .stroke(Color.white, lineWidth: 2)
-                    .opacity(selectedItemID == item.id ? 1 : 0)
-            )
-            .offset(dragOffset)
-            .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                            print("👆 [Gesture] Drag gesture changed")
-                            print("📍 [Gesture] Touch location: \(value.startLocation)")
-                            print("🔄 [Gesture] Gesture active: \(isGestureActive)")
-
-                            // On first touch, validate if we're touching an opaque pixel
-                            if !isGestureActive {
-                                print("🆕 [Gesture] First touch - validating hit test...")
-
-                                if let uiImage = item.uiImage {
-                                    print("✅ [Gesture] UIImage found: \(uiImage.size)")
-
-                                    let result = isTouchingOpaquePixel(
-                                        at: value.startLocation,
-                                        in: geometry,
-                                        image: uiImage
-                                    )
-
-                                    print("📊 [Gesture] Hit test result: \(result)")
-
-                                    if result {
-                                        isGestureActive = true
-                                        selectedItemID = item.id
-                                        print("✅ [Gesture] Gesture ACTIVATED")
-                                    } else {
-                                        print("❌ [Gesture] Gesture REJECTED (transparent pixel)")
-                                        return
-                                    }
-                                } else {
-                                    print("⚠️ [Gesture] No UIImage in item - defaulting to active")
-                                    isGestureActive = true
-                                    selectedItemID = item.id
-                                }
-                            }
-
-                            if isGestureActive {
-                                dragOffset = value.translation
-                                print("↔️ [Gesture] Drag offset updated: \(dragOffset)")
-                            }
-                        }
-                        .onEnded { value in
-                            print("🏁 [Gesture] Drag gesture ended")
-                            if isGestureActive {
-                                let newPosition = CGPoint(
-                                    x: item.position.x + value.translation.width,
-                                    y: item.position.y + value.translation.height
-                                )
-                                print("📍 [Gesture] New position: \(newPosition)")
-                                item.position = newPosition
-                                dragOffset = .zero
-                                isGestureActive = false
-                                print("✅ [Gesture] Gesture deactivated")
-                            } else {
-                                print("⏭️ [Gesture] Gesture was not active, no update")
-                            }
-                            print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                        }
-                )
-                .simultaneousGesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            currentScale = value
-                            print("🔍 [Gesture] Magnification: \(value)")
-                        }
-                        .onEnded { value in
-                            item.scale *= value
-                            currentScale = 1.0
-                            print("✅ [Gesture] Magnification ended: final scale = \(item.scale)")
-                        }
-                )
-                .simultaneousGesture(
-                    RotationGesture()
-                        .onChanged { value in
-                            rotation = lastRotation + value
-                            print("🔄 [Gesture] Rotation: \(rotation.degrees)°")
-                        }
-                        .onEnded { value in
-                            lastRotation += value
-                            print("✅ [Gesture] Rotation ended: \(lastRotation.degrees)°")
-                        }
-                )
+        )
+        .overlay(
+            Rectangle()
+                .stroke(Color.white, lineWidth: 2)
+                .opacity(isSelected && !isGestureActive ? 1 : 0)
+        )
+        .overlay(
+            Group {
+                if isSelected && !isGestureActive {
+                    cornerHandlesOverlay(displaySize: displaySize, baseSize: baseSize)
+                }
+            }
+        )
+        .rotationEffect(rotation)
+        .offset(x: dragOffset.width + cornerDragOffset.width,
+                y: dragOffset.height + cornerDragOffset.height)
+        .onTapGesture {
+            if selectedItemID == item.id {
+                selectedItemID = nil
+            } else {
+                selectedItemID = item.id
+            }
         }
-        .frame(width: item.size.width * item.scale * currentScale, height: item.size.height * item.scale * currentScale)
+        .gesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in
+                    // On first touch, validate if we're touching an opaque pixel
+                    if !isGestureActive {
+                        if let uiImage = item.uiImage {
+                            let result = isTouchingOpaquePixel(
+                                at: value.startLocation,
+                                imageSize: displaySize,
+                                image: uiImage
+                            )
+                            if result {
+                                isGestureActive = true
+                                isAnyItemDragging = true
+                                selectedItemID = item.id
+                            } else {
+                                return
+                            }
+                        } else {
+                            isGestureActive = true
+                            isAnyItemDragging = true
+                            selectedItemID = item.id
+                        }
+                    }
+
+                    if isGestureActive {
+                        dragOffset = value.translation
+                    }
+                }
+                .onEnded { value in
+                    if isGestureActive {
+                        let newPosition = CGPoint(
+                            x: item.position.x + value.translation.width,
+                            y: item.position.y + value.translation.height
+                        )
+                        item.position = newPosition
+                        dragOffset = .zero
+                        isGestureActive = false
+                        isAnyItemDragging = false
+                    }
+                }
+        )
+        .simultaneousGesture(
+            MagnificationGesture()
+                .onChanged { value in
+                    currentScale = value
+                }
+                .onEnded { value in
+                    item.scale *= value
+                    currentScale = 1.0
+                }
+        )
+        .simultaneousGesture(
+            RotationGesture()
+                .onChanged { value in
+                    rotation = lastRotation + value
+                }
+                .onEnded { value in
+                    lastRotation += value
+                }
+        )
+    }
+
+    // MARK: - Corner Handles
+
+    @ViewBuilder
+    private func cornerHandlesOverlay(displaySize: CGSize, baseSize: CGSize) -> some View {
+        ZStack {
+            cornerHandle(corner: .topLeft,     displaySize: displaySize, baseSize: baseSize)
+            cornerHandle(corner: .topRight,    displaySize: displaySize, baseSize: baseSize)
+            cornerHandle(corner: .bottomLeft,  displaySize: displaySize, baseSize: baseSize)
+            cornerHandle(corner: .bottomRight, displaySize: displaySize, baseSize: baseSize)
+        }
+    }
+
+    private enum Corner {
+        case topLeft, topRight, bottomLeft, bottomRight
+
+        /// Unit direction of this corner from center: +1 = right/down, -1 = left/up
+        var xDir: CGFloat { (self == .topRight || self == .bottomRight) ? 1 : -1 }
+        var yDir: CGFloat { (self == .bottomLeft || self == .bottomRight) ? 1 : -1 }
+    }
+
+    @ViewBuilder
+    private func cornerHandle(corner: Corner, displaySize: CGSize, baseSize: CGSize) -> some View {
+        Circle()
+            .fill(Color.white)
+            .frame(width: handleSize, height: handleSize)
+            .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
+            // Expand the hit area without changing visual size
+            .contentShape(Rectangle().size(CGSize(width: handleHitArea, height: handleHitArea)))
+            .frame(width: handleHitArea, height: handleHitArea)
+            .position(x: displaySize.width / 2 + corner.xDir * displaySize.width / 2,
+                      y: displaySize.height / 2 + corner.yDir * displaySize.height / 2)
+            .gesture(
+                DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                    .onChanged { value in
+                        // Use baseSize (stable for the whole drag) as the reference.
+                        let baseDiag = sqrt(baseSize.width * baseSize.width + baseSize.height * baseSize.height)
+                        guard baseDiag > 0 else { return }
+
+                        // value.translation is in global (screen) space.
+                        // Rotate it into the item's local space so the projection is correct.
+                        let angle = rotation.radians
+                        let cosA = cos(angle)
+                        let sinA = sin(angle)
+                        let tx = value.translation.width
+                        let ty = value.translation.height
+                        let localDx = tx * cosA + ty * sinA
+                        let localDy = -tx * sinA + ty * cosA
+
+                        // Project onto this corner's outward diagonal in local space.
+                        let signedDx = localDx * corner.xDir
+                        let signedDy = localDy * corner.yDir
+                        let normalX = baseSize.width  / baseDiag
+                        let normalY = baseSize.height / baseDiag
+                        let delta = signedDx * normalX + signedDy * normalY
+
+                        let newDiag = max(40, baseDiag + delta)
+                        let scale = newDiag / baseDiag
+                        cornerDragScale = scale
+
+                        // The center shift in local space (half the size growth toward dragged corner).
+                        let localOffsetX = (baseSize.width  * scale - baseSize.width)  * corner.xDir / 2
+                        let localOffsetY = (baseSize.height * scale - baseSize.height) * corner.yDir / 2
+
+                        // Rotate the local offset back into parent (canvas) space.
+                        cornerDragOffset = CGSize(
+                            width:  localOffsetX * cosA - localOffsetY * sinA,
+                            height: localOffsetX * sinA + localOffsetY * cosA
+                        )
+                    }
+                    .onEnded { _ in
+                        item.scale *= cornerDragScale
+                        item.position = CGPoint(
+                            x: item.position.x + cornerDragOffset.width,
+                            y: item.position.y + cornerDragOffset.height
+                        )
+                        cornerDragScale = 1.0
+                        cornerDragOffset = .zero
+                    }
+            )
     }
 
     /// Checks if a touch location is on an opaque pixel of the image
-    private func isTouchingOpaquePixel(at location: CGPoint, in geometry: GeometryProxy, image: UIImage) -> Bool {
-        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-        print("🎯 [PixelCheck] Checking pixel opacity")
-        print("📍 [PixelCheck] Touch location: \(location)")
-
-        // Get the frame of the rendered image
-        let imageWidth = item.size.width * item.scale * currentScale
-        let imageHeight = item.size.height * item.scale * currentScale
-
-        print("📐 [PixelCheck] Rendered image size: \(imageWidth) x \(imageHeight)")
-        print("📐 [PixelCheck] Item size: \(item.size)")
-        print("📐 [PixelCheck] Item scale: \(item.scale)")
-        print("📐 [PixelCheck] Current scale: \(currentScale)")
-
-        // Convert touch location to image-relative coordinates
+    private func isTouchingOpaquePixel(at location: CGPoint, imageSize: CGSize, image: UIImage) -> Bool {
         let touchX = location.x
         let touchY = location.y
 
-        print("📍 [PixelCheck] Touch X: \(touchX), Y: \(touchY)")
-
         // Check bounds
-        guard touchX >= 0, touchX <= imageWidth,
-              touchY >= 0, touchY <= imageHeight else {
-            print("❌ [PixelCheck] Touch outside image bounds")
+        guard touchX >= 0, touchX <= imageSize.width,
+              touchY >= 0, touchY <= imageSize.height else {
             return false
         }
 
         // Convert to normalized coordinates (0-1)
-        let normalizedX = touchX / imageWidth
-        let normalizedY = touchY / imageHeight
+        let normalizedX = touchX / imageSize.width
+        let normalizedY = touchY / imageSize.height
 
-        print("📊 [PixelCheck] Normalized coordinates: (\(normalizedX), \(normalizedY))")
-
-        // Check if pixel is opaque
-        let result = image.isOpaqueAt(normalizedPoint: CGPoint(x: normalizedX, y: normalizedY))
-        print("📊 [PixelCheck] Final result: \(result)")
-
-        return result
+        return image.isOpaqueAt(normalizedPoint: CGPoint(x: normalizedX, y: normalizedY))
     }
 }
 

@@ -58,11 +58,11 @@ enum CutoutBorderColor: Int, CaseIterable {
         case .white:
             return .white
         case .red:
-            return .red
+            return Color(red: 1.0, green: 0.07, blue: 0.07)
         case .yellow:
-            return .yellow
+            return Color(red: 1.0, green: 0.95, blue: 0.0)
         case .green:
-            return .green
+            return Color(red: 0.07, green: 1.0, blue: 0.07)
         case .black:
             return .black
         case .none:

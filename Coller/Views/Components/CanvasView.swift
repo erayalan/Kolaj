@@ -4,6 +4,7 @@ import SwiftUI
 struct CanvasView: View {
     @Binding var items: [CollageItem]
     @Binding var selectedItemID: UUID?
+    @Binding var isAnyItemDragging: Bool
 
     var body: some View {
         GeometryReader { proxy in
@@ -14,8 +15,12 @@ struct CanvasView: View {
                         selectedItemID = nil
                     }
                 ForEach($items) { $item in
-                    DraggableResizableItem(item: $item, selectedItemID: $selectedItemID)
-                        .position(item.position)
+                    DraggableResizableItem(
+                        item: $item,
+                        selectedItemID: $selectedItemID,
+                        isAnyItemDragging: $isAnyItemDragging
+                    )
+                    .position(item.position)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)

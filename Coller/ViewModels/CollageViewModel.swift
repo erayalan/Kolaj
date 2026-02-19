@@ -52,25 +52,10 @@ final class CollageViewModel {
         state.isProcessing = false
     }
 
-    /// Exports the current canvas as an image
-    func exportCanvas() {
-        guard !state.items.isEmpty else {
-            state.error = .exportFailed
-            return
-        }
-
-        // Render the canvas
-        guard let uiImage = canvasExportService.renderCanvas(
-            items: state.items,
-            size: state.canvasSize
-        ) else {
-            state.error = .exportFailed
-            return
-        }
-
-        // Update state with export image
-        state.exportImage = Image(uiImage: uiImage)
-        state.isExporting = true
+    /// Renders the current canvas as a UIImage for saving or sharing
+    func renderCanvasImage() -> UIImage? {
+        guard !state.items.isEmpty else { return nil }
+        return canvasExportService.renderCanvas(items: state.items, size: state.canvasSize)
     }
 
     /// Updates the canvas size
@@ -82,11 +67,6 @@ final class CollageViewModel {
     /// Clears the current error
     func clearError() {
         state.error = nil
-    }
-
-    /// Dismisses the export sheet
-    func dismissExport() {
-        state.isExporting = false
     }
 
     /// Deletes the currently selected item, if any

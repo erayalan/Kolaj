@@ -10,12 +10,6 @@ final class AppState {
     /// Current canvas size (updated by GeometryReader)
     var canvasSize: CGSize = .zero
 
-    /// Whether the export sheet is currently presented
-    var isExporting: Bool = false
-
-    /// The rendered image ready for export
-    var exportImage: Image?
-
     /// Current error to display to the user
     var error: AppError?
 

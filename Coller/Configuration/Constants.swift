@@ -34,8 +34,11 @@ enum Constants {
         /// Vertical padding for export button
         static let exportButtonPaddingV: CGFloat = 12
 
-        /// Size of the plus icon
-        static let plusIconSize: CGFloat = 20
+        /// Size of the plus icon (layer control buttons)
+        static let plusIconSize: CGFloat = 16
+
+        /// Size of the main action button icons (add photo, export)
+        static let mainActionIconSize: CGFloat = 16
 
         /// Padding inside the plus button circle
         static let plusButtonPadding: CGFloat = 18

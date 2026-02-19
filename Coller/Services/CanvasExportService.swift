@@ -28,7 +28,7 @@ final class CanvasExportService: CanvasExportProtocol {
 
         // Use ImageRenderer to render the CanvasView
         let renderer = ImageRenderer(
-            content: CanvasView(items: itemsBinding, selectedItemID: .constant(nil))
+            content: CanvasView(items: itemsBinding, selectedItemID: .constant(nil), isAnyItemDragging: .constant(false))
                 .frame(width: size.width, height: size.height)
         )
         renderer.scale = Constants.Rendering.screenScale

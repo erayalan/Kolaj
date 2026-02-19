@@ -11,12 +11,11 @@ struct FloatingActionButtons: View {
             maxSelectionCount: Constants.Layout.maxPhotoSelection,
             matching: .images
         ) {
-            Image(systemName: "plus")
-                .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
-                .padding()
+            Image(systemName: "photo.badge.plus")
+                .font(.system(size: Constants.UI.mainActionIconSize, weight: .bold))
+                .padding(.all, 8)
         }
         .buttonStyle(.glass)
         .clipShape(.circle)
-        .padding(Constants.UI.fabClusterPadding)
     }
 }

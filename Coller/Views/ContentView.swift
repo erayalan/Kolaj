@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var viewModel = CollageViewModel()
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var isAnyItemDragging: Bool = false
+    @State private var showClearConfirmation: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var showLayerActions: Bool { viewModel.state.selectedItemID != nil && !isAnyItemDragging }
@@ -146,12 +147,35 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
 
+            // Clear canvas button (top left), shown when there are items
+            if !isAnyItemDragging && !viewModel.state.items.isEmpty {
+                Button(action: {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showClearConfirmation = true
+                }) {
+                    Image(systemName: "trash.square")
+                        .font(.system(size: Constants.UI.plusIconSize, weight: .bold))
+                        .frame(width: Constants.UI.plusIconSize, height: Constants.UI.plusIconSize)
+                        .padding(.all, 8)
+                }
+                .buttonStyle(.glass)
+                .clipShape(.circle)
+                .safeAreaPadding(Constants.UI.fabClusterPadding)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+
             // Loading overlay
             LoadingOverlay(isLoading: viewModel.state.isProcessing)
         }
         .statusBarHidden()
         .errorAlert(error: $viewModel.state.error) {
             viewModel.clearError()
+        }
+        .alert("Clear the canvas?", isPresented: $showClearConfirmation) {
+            Button("Clear", role: .destructive) {
+                viewModel.clearAllItems()
+            }
+            Button("Dismiss", role: .cancel) { }
         }
         .onChange(of: pickerItems) { _, newItems in
             Task {
@@ -176,6 +200,15 @@ func presentColorPicker(selection: Binding<Color>, supportsAlpha: Bool = true) {
     let picker = UIColorPickerViewController()
     picker.selectedColor = UIColor(selection.wrappedValue)
     picker.supportsAlpha = supportsAlpha
+    picker.modalPresentationStyle = .popover
+    
+    // Configure popover presentation
+    if let popover = picker.popoverPresentationController {
+        popover.sourceView = top.view
+        popover.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.midY, width: 0, height: 0)
+        popover.permittedArrowDirections = []
+    }
+    
     picker.delegate = ColorPickerDelegate.shared.configure(binding: selection)
     top.present(picker, animated: true)
 }

@@ -31,7 +31,7 @@ struct CanvasView: View {
                         Text("\"Collage is the alchemy of the visual image.\" - Max Ernst")
                             .font(.system(size: 20, weight: .bold, design: .serif))
                             .italic()
-                        Text("Add your photos on the canvas to start your alchemy.")
+                        Text("Add your photos to create your collage.")
                             .font(.system(size: 16, weight: .light,))
                     }
                     .multilineTextAlignment(.center)

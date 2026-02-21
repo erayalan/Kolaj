@@ -13,14 +13,16 @@ struct LoadingOverlay: View {
                 VStack(spacing: 16) {
                     ProgressView()
                         .scaleEffect(1.5)
-                        .tint(.white)
 
-                    Text("Processing images...")
+                    Text("Cutting out backgrounds...")
                         .font(.headline)
-                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(32)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                .padding(.vertical, 24)
+                .padding(.horizontal, 24)
+                .frame(width: 270)
+                .glassEffect(in: .rect(cornerRadius: 32.0))
+                //.shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
             }
         }
     }

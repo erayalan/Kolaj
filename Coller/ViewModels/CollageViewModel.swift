@@ -145,4 +145,10 @@ final class CollageViewModel {
     func cycleCanvasBackgroundColor() {
         state.canvasBackgroundColor = state.canvasBackgroundColor.next()
     }
+
+    /// Clears all items from the canvas
+    func clearAllItems() {
+        state.items.removeAll()
+        state.selectedItemID = nil
+    }
 }
